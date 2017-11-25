@@ -85,7 +85,7 @@ public void OnPluginStart()
 
 public void OnClientDisconnect(int client)
 {
-	ResetTemplate(client);
+	ResetBullets(client);
 }
 
 public Action TTT_OnItemPurchased(int client, const char[] itemshort, bool count)
@@ -107,13 +107,13 @@ public Action TTT_OnItemPurchased(int client, const char[] itemshort, bool count
 			}
 			else if (HasBullets(client))
 			{
-				CPrintToChat(client, tag, "Have already", client);
+				CPrintToChat(client, "%s %t", tag, "Have already");
 				return Plugin_Stop;
 			}
 
 			hasIce[client] = true;
 			bulletsIce[client] += gIceNb.IntValue;
-			CPrintToChat(client, tag, "Buy bullets", client, bulletsIce[client], itemName);		
+			CPrintToChat(client, "%s %t", tag, "Buy bullets", bulletsIce[client], itemName);		
 		}
 		
 		else if (StrEqual(itemshort, SHORT_NAME_FIRE, false))
@@ -131,13 +131,13 @@ public Action TTT_OnItemPurchased(int client, const char[] itemshort, bool count
 			}
 			else if (HasBullets(client))
 			{
-				CPrintToChat(client, tag, "Have already", client);
+				CPrintToChat(client, "%s %t", tag, "Have already");
 				return Plugin_Stop;
 			}		
 
 			hasFire[client] = true;
 			bulletsFire[client] += gFireNb.IntValue;
-			CPrintToChat(client, tag, "Buy bullets", client, bulletsFire[client], itemName);					
+			CPrintToChat(client, "%s %t", tag, "Buy bullets", bulletsFire[client], itemName);					
 		}	
 
 		else if (StrEqual(itemshort, SHORT_NAME_POISON, false))
@@ -155,13 +155,13 @@ public Action TTT_OnItemPurchased(int client, const char[] itemshort, bool count
 			}
 			else if (HasBullets(client))
 			{
-				CPrintToChat(client, tag, "Have already", client);
+				CPrintToChat(client, "%s %t", tag, "Have already");
 				return Plugin_Stop;
 			}			
 
 			hasPoison[client] = true;
 			bulletsPoison[client] += gPoisonNb.IntValue;
-			CPrintToChat(client, tag, "Buy bullets", client, bulletsPoison[client], itemName);		
+			CPrintToChat(client, "%s %t", tag, "Buy bullets", bulletsPoison[client], itemName);		
 		}	
 	}
 	return Plugin_Continue;
@@ -173,7 +173,7 @@ public Action Event_PlayerSpawn(Event event, const char[] name, bool dontBroadca
 
 	if (TTT_IsClientValid(client))
 	{
-		ResetTemplate(client);
+		ResetBullets(client);
 	}
 }
 
@@ -219,7 +219,7 @@ public Action Event_WeaponFire(Event event, const char[] name, bool dontBroadcas
 			char itemName[128];	
 			gIceLongName.GetString(itemName, sizeof(itemName));		
 			bulletsIce[client]--;
-			CPrintToChat(client, tag, "{orchid}{%s} : {lightgreen}{%d}/{green}{%d}.", client, itemName, bulletsIce[client], gIceNb.IntValue);
+			CPrintToChat(client, "%s %t", tag, "Number bullets", itemName, bulletsIce[client], gIceNb.IntValue);			
 			if (bulletsIce[client] <= 0)
 			{
 				hasIce[client] = false;
@@ -230,22 +230,22 @@ public Action Event_WeaponFire(Event event, const char[] name, bool dontBroadcas
 			char itemName[128];	
 			gFireLongName.GetString(itemName, sizeof(itemName));					
 			bulletsFire[client]--;
-			CPrintToChat(client, tag, "{orchid}{%s} : {lightgreen}{%d}/{green}{%d}.", client, itemName, bulletsFire[client], gFireNb.IntValue);
+			CPrintToChat(client, "%s %t", tag, "Number bullets", itemName, bulletsFire[client], gFireNb.IntValue);
 			if (bulletsFire[client] <= 0)
 			{
 				hasFire[client] = false;
-			}		
+			}
 		}
 		else if (hasPoison[client])
 		{
 			char itemName[128];	
 			gPoisonLongName.GetString(itemName, sizeof(itemName));			
 			bulletsPoison[client]--;
-			CPrintToChat(client, tag, "{orchid}{%s} : {lightgreen}{%d}/{green}{%d}.", client, itemName, bulletsPoison[client], gPoisonNb.IntValue);
+			CPrintToChat(client, "%s %t", tag, "Number bullets", itemName, bulletsPoison[client], gPoisonNb.IntValue);
 			if (bulletsPoison[client] <= 0)
 			{
 				hasPoison[client] = false;
-			}			
+			}	
 		}	
 	}
 	return Plugin_Continue;
@@ -256,8 +256,11 @@ public Action TimerIce(Handle timer, any userid)
 	int client = GetClientOfUserId(userid);
 	if (TTT_IsClientValid(client))
 	{
-		SetEntityMoveType(client, MOVETYPE_WALK);
-		SetEntityRenderColor(client, 255, 255, 255, 255);
+		if (IsPlayerAlive(client))
+		{
+			SetEntityMoveType(client, MOVETYPE_WALK);
+			SetEntityRenderColor(client, 255, 255, 255, 255);
+		}
 	}
 	return Plugin_Handled;
 }
@@ -266,26 +269,34 @@ public Action TimerPoison(Handle timer, any userid)
 {
 	int client = GetClientOfUserId(userid);
 	
-	if (TTT_IsClientValid(client) && IsPlayerAlive(client))
+	if (TTT_IsClientValid(client))
 	{
-		if (timerPoison[client] <= gPoisonTimer.IntValue)
+		if (IsPlayerAlive(client))
 		{
-			SetEntityRenderColor(client, 78, 7, 104, 192);
-			SetEntityHealth(client, GetClientHealth(client) - gPoisonDmg.IntValue);
-			SetEntityRenderColor(client);
-			timerPoison[client]++;
+			if (timerPoison[client] <= gPoisonTimer.IntValue)
+			{
+				SetEntityRenderColor(client, 78, 7, 104, 192);
+				SetEntityHealth(client, GetClientHealth(client) - gPoisonDmg.IntValue);
+				SetEntityRenderColor(client);
+				timerPoison[client]++;
+			}
+			if (GetClientHealth(client) <= 0)
+			{
+				ForcePlayerSuicide(client);
+				timerPoison[client] = 0;
+				return Plugin_Stop;		
+			}
+			else
+			{
+				if (timerPoison[client] > gPoisonTimer.IntValue)
+				{
+					timerPoison[client] = 0;
+					return Plugin_Stop;			
+				}
+				return Plugin_Continue;
+			}
 		}
-		if (GetClientHealth(client) <= 0)
-		{
-			ForcePlayerSuicide(client);
-			timerPoison[client] = 0;
-			return Plugin_Stop;		
-		}
-		else
-		{
-			return Plugin_Continue;
-		}
-	}
+	}	
 	return Plugin_Stop;
 }
 
@@ -300,7 +311,7 @@ public void OnAllPluginsLoaded()
 	TTT_RegisterCustomItem(SHORT_NAME_POISON, itemName, gPoisonPrice.IntValue, TTT_TEAM_TRAITOR, gPoisonPrio.IntValue);	
 }
 
-void ResetTemplate(int client)
+void ResetBullets(int client)
 {
 	bulletsIce[client] = 0;
 	bulletsFire[client] = 0;
@@ -313,11 +324,7 @@ void ResetTemplate(int client)
 bool HasBullets(int client)
 {
 	bool result = false;
-	if (hasIce[client])
-		result = true;
-	else if (hasFire[client])
-		result = true;
-	else if (hasPoison[client])		
+	if (hasIce[client] || hasFire[client] || hasPoison[client])
 		result = true;
 	return result;
 }
@@ -325,7 +332,11 @@ bool HasBullets(int client)
 bool IsWeapon(char[] weapon)
 {
 	bool result = true;
-	if (StrContains(weapon, "nade") != -1 || StrContains(weapon, "knife") != -1 || StrContains(weapon, "healthshot") != -1 || StrContains(weapon, "molotov") != -1  || StrContains(weapon, "decoy"))
+	if (StrContains(weapon, "nade") != -1 
+	|| StrContains(weapon, "knife") != -1 
+	|| StrContains(weapon, "healthshot") != -1 
+	|| StrContains(weapon, "molotov") != -1  
+	|| StrContains(weapon, "decoy") != -1)
 	{
 		result = false;
 	}	
