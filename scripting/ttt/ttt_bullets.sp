@@ -293,12 +293,13 @@ public Action TimerPoison(Handle timer, any userid)
 	/*
 		Remove health from the player each seconds
 		IF client is valid and alive + timer is on
-		THEN we remove health and toggle the color
-		IF after that, the health is under 0
-		THEN we kill the client
-		ELSE We let the timer continue or stop it
+		THEN we calculate the health we will remove
+			IF calcul <= 0
+			THEN we kill
+			ELSE we change the health of the client
 	*/
 	int client = GetClientOfUserId(userid);
+	Action result = Plugin_Stop;
 	
 	if (TTT_IsClientValid(client))
 	{
@@ -306,29 +307,28 @@ public Action TimerPoison(Handle timer, any userid)
 		{
 			if (gTimerPoison[client] <= cvPoisonTimer.IntValue)
 			{
-				SetEntityRenderColor(client, 78, 7, 104, 192);
-				SetEntityHealth(client, GetClientHealth(client) - cvPoisonDmg.IntValue);
-				SetEntityRenderColor(client);
-				gTimerPoison[client]++;
-			}
-			if (GetClientHealth(client) <= 0)
-			{
-				ForcePlayerSuicide(client);
-				gTimerPoison[client] = 0;
-				return Plugin_Stop;		
+				int calcul = GetClientHealth(client) - cvPoisonDmg.IntValue;
+				if (calcul <= 0)
+				{
+					ForcePlayerSuicide(client);
+					gTimerPoison[client] = 0;	
+				}
+				else
+				{
+					SetEntityRenderColor(client, 255, 75, 75, 255);
+					SetEntityHealth(client, calcul);
+					SetEntityRenderColor(client);
+					gTimerPoison[client]++;	
+					result = Plugin_Continue;
+				}
 			}
 			else
 			{
-				if (gTimerPoison[client] > cvPoisonTimer.IntValue)
-				{
-					gTimerPoison[client] = 0;
-					return Plugin_Stop;			
-				}
-				return Plugin_Continue;
+				gTimerPoison[client] = 0;	
 			}
-		}
+		}	
 	}	
-	return Plugin_Stop;
+	return result;
 }
 
 public void OnConfigsExecuted()
@@ -347,6 +347,7 @@ void ResetBullets(int client)
 	/*
 		Reset the inventory of client
 	*/
+	gTimerPoison[client] = 0;
 	gBulletsIce[client] = 0;
 	gBulletsFire[client] = 0;
 	gBulletsPoison[client] = 0;
